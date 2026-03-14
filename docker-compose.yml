@@ -1,0 +1,97 @@
+services:
+  frontend:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    environment:
+      FRONTEND_PORT: ${FRONTEND_PORT:-3000}
+      WATCHPACK_POLLING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    command: >
+      sh -lc "
+      corepack enable &&
+      pnpm config set store-dir /pnpm/store &&
+      pnpm install &&
+      pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}
+      "
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+      - frontend-next:/app/.next
+      - pnpm-store:/pnpm/store
+
+  backend:
+    image: golang:1.25-bookworm
+    working_dir: /app
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      GOPROXY: https://proxy.golang.org,direct
+      GOSUMDB: sum.golang.org
+      GOTOOLCHAIN: auto
+    command: >
+      sh -lc "
+      /usr/local/go/bin/go run github.com/air-verse/air@latest -c .air.toml
+      "
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - ./backend:/app
+      - go-pkg-mod:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+
+  worker:
+    image: golang:1.25-bookworm
+    working_dir: /app
+    environment:
+      WORKER_PORT: ${WORKER_PORT:-8081}
+      GOPROXY: https://proxy.golang.org,direct
+      GOSUMDB: sum.golang.org
+      GOTOOLCHAIN: auto
+    command: >
+      sh -lc "
+      /usr/local/go/bin/go run github.com/air-verse/air@latest -c .air.toml
+      "
+    ports:
+      - "${WORKER_PORT:-8081}:8081"
+    volumes:
+      - ./worker:/app
+      - go-pkg-mod:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: realtime-streaming-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-realtime_streaming}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-realtime_streaming}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: realtime-streaming-livekit
+    command:
+      - --dev
+      - --bind
+      - 0.0.0.0
+    ports:
+      - "${LIVEKIT_HTTP_PORT:-7880}:7880"
+      - "${LIVEKIT_UDP_PORT:-7881}:7881/udp"
+      - "${LIVEKIT_TCP_PORT:-7881}:7881/tcp"
+
+volumes:
+  frontend-node-modules:
+  frontend-next:
+  pnpm-store:
+  go-pkg-mod:
+  go-build-cache:
+  postgres-data:

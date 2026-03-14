@@ -1,0 +1,8 @@
+.DS_Store
+.frontend-git-backup
+.env
+backend/tmp
+worker/tmp
+frontend/.next
+frontend/node_modules
+postgres-data

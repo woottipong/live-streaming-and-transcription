@@ -10,7 +10,7 @@ epic-01-project-setup
 infra
 
 ## Status
-todo
+done
 
 ## Priority
 high
@@ -39,7 +39,7 @@ high
 ## Acceptance Criteria
 - `go run ./backend` เริ่มได้ ฟัง port 8080
 - `go run ./worker` เริ่มได้ ฟัง port 8081
-- `npm run dev` ใน frontend เริ่มได้
+- `pnpm dev` ใน frontend เริ่มได้
 - `docker compose up` รัน PostgreSQL + LiveKit ได้
 - `.env.example` มี config ครบ (DB, LiveKit, Worker URL)
 
@@ -49,21 +49,32 @@ high
 - worker/main.go
 - worker/go.mod
 - frontend/package.json
+- frontend/components.json
+- frontend/components/ui/button.jsx
+- frontend/components/ui/card.jsx
+- frontend/components/ui/badge.jsx
 - docker-compose.yml
 - .env.example
 
 ## Test Checklist
-- [ ] `go run ./backend` เริ่มได้ไม่ error
-- [ ] `go run ./worker` เริ่มได้ไม่ error
-- [ ] `npm run dev` ใน frontend เริ่มได้
-- [ ] `docker compose up -d` รัน postgres ได้
-- [ ] `.env.example` มีค่าครบ
+- [x] `go run ./backend` เริ่มได้ไม่ error
+- [x] `go run ./worker` เริ่มได้ไม่ error
+- [x] `pnpm dev` ใน frontend เริ่มได้
+- [x] `docker compose up -d` รัน postgres ได้
+- [x] `.env.example` มีค่าครบ
 
 ## Outcome
+สร้าง monorepo scaffold สำหรับ backend, worker, frontend, `docker-compose.yml`, และ `.env.example` แล้ว พร้อม verify การรันของ backend, worker, และ frontend จาก root repository
 
+frontend ถูกตั้งค่าให้ใช้ `pnpm` และ initialize `shadcn/ui` เรียบร้อย พร้อมหน้าแรกที่ compose ด้วย `Button`, `Card`, และ `Badge`
 
 ## Completion Evidence
+`env GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org go run ./backend` ฟังที่ `:8080` และตอบ `/health`
+`env GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org go run ./worker` ฟังที่ `:8081` และตอบ `/health`
+`pnpm install` สร้าง `frontend/pnpm-lock.yaml` และ `pnpm dev` ใน `frontend/` ขึ้นที่ `http://localhost:3000`
+`pnpm build` ใน `frontend/` ผ่าน และหน้า `/` render shadcn UI ใหม่ได้
+`docker compose up -d` ขึ้น PostgreSQL และ LiveKit สำเร็จ โดย PostgreSQL publish ที่ `5433` เพื่อหลบพอร์ต `5432` ที่ถูกใช้อยู่บนเครื่อง และ `pg_isready -U postgres -d realtime_streaming` ตอบรับ connection
 
 
 ## Completed At
-
+2026-03-14 23:48:30 +07

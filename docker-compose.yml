@@ -30,6 +30,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-realtime_streaming}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      LIVEKIT_HTTP_URL: "http://livekit:7880"
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       GOPROXY: https://proxy.golang.org,direct
       GOSUMDB: sum.golang.org
       GOTOOLCHAIN: auto
@@ -89,6 +92,8 @@ services:
   livekit:
     image: livekit/livekit-server:latest
     container_name: realtime-streaming-livekit
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}:${LIVEKIT_API_SECRET:-secret}"
     command:
       - --dev
       - --bind

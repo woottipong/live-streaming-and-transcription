@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/iwoody/realtime-streaming/backend/internal/handler"
+	backendlivekit "github.com/iwoody/realtime-streaming/backend/internal/livekit"
 	"github.com/iwoody/realtime-streaming/backend/internal/model"
 	"github.com/iwoody/realtime-streaming/backend/internal/repository"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +17,10 @@ type UpdateSessionParams = repository.UpdateSessionParams
 var ErrSessionNotFound = repository.ErrSessionNotFound
 
 func New(repo repository.SessionRepository) *fiber.App {
+	return NewWithLiveKit(repo, backendlivekit.NopClient{})
+}
+
+func NewWithLiveKit(repo repository.SessionRepository, roomClient backendlivekit.RoomClient) *fiber.App {
 	app := fiber.New()
 
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -31,7 +36,7 @@ func New(repo repository.SessionRepository) *fiber.App {
 		})
 	})
 
-	handler.NewSessionHandler(repo).Register(app)
+	handler.NewSessionHandler(repo, roomClient).Register(app)
 
 	return app
 }

@@ -8,12 +8,16 @@ import (
 	"os"
 
 	"github.com/iwoody/realtime-streaming/backend/internal/app"
+	backendlivekit "github.com/iwoody/realtime-streaming/backend/internal/livekit"
 	"github.com/iwoody/realtime-streaming/backend/internal/repository"
 )
 
 func main() {
 	port := getEnv("BACKEND_PORT", "8080")
 	databaseURL := getDatabaseURL()
+	liveKitHTTPURL := getEnv("LIVEKIT_HTTP_URL", "http://livekit:7880")
+	liveKitAPIKey := getEnv("LIVEKIT_API_KEY", "devkey")
+	liveKitAPISecret := getEnv("LIVEKIT_API_SECRET", "secret")
 
 	ctx := context.Background()
 	pool, err := repository.NewPostgresPool(ctx, databaseURL)
@@ -22,7 +26,8 @@ func main() {
 	}
 	defer pool.Close()
 
-	fiberApp := app.New(app.NewPostgresRepo(pool))
+	liveKitClient := backendlivekit.NewClient(liveKitHTTPURL, liveKitAPIKey, liveKitAPISecret)
+	fiberApp := app.NewWithLiveKit(app.NewPostgresRepo(pool), liveKitClient)
 
 	addr := ":" + port
 	log.Printf("backend listening on %s", addr)

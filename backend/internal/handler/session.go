@@ -1,19 +1,26 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/iwoody/realtime-streaming/backend/internal/livekit"
+	"github.com/iwoody/realtime-streaming/backend/internal/model"
 	"github.com/iwoody/realtime-streaming/backend/internal/repository"
 )
 
 type SessionHandler struct {
-	repo repository.SessionRepository
+	repo       repository.SessionRepository
+	roomClient livekit.RoomClient
 }
+
+const liveKitCleanupTimeout = 5 * time.Second
 
 type createSessionRequest struct {
 	Title           string  `json:"title"`
@@ -59,8 +66,11 @@ func (f *patchStringField) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func NewSessionHandler(repo repository.SessionRepository) *SessionHandler {
-	return &SessionHandler{repo: repo}
+func NewSessionHandler(repo repository.SessionRepository, roomClient livekit.RoomClient) *SessionHandler {
+	return &SessionHandler{
+		repo:       repo,
+		roomClient: roomClient,
+	}
 }
 
 func (h *SessionHandler) Register(app *fiber.App) {
@@ -68,6 +78,26 @@ func (h *SessionHandler) Register(app *fiber.App) {
 	api.Post("/", h.Create)
 	api.Get("/:id", h.GetByID)
 	api.Patch("/:id", h.Update)
+}
+
+func (h *SessionHandler) createSessionWithLiveKit(ctx context.Context, params repository.CreateSessionParams) (model.Session, error) {
+	if err := h.roomClient.CreateRoom(ctx, params.RoomName); err != nil {
+		return model.Session{}, err
+	}
+
+	session, err := h.repo.Create(ctx, params)
+	if err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), liveKitCleanupTimeout)
+		defer cancel()
+
+		if cleanupErr := h.roomClient.DeleteRoom(cleanupCtx, params.RoomName); cleanupErr != nil {
+			return model.Session{}, fmt.Errorf("create session: %w (cleanup livekit room: %v)", err, cleanupErr)
+		}
+
+		return model.Session{}, err
+	}
+
+	return session, nil
 }
 
 func (h *SessionHandler) Create(c *fiber.Ctx) error {
@@ -81,11 +111,15 @@ func (h *SessionHandler) Create(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: err.Error()})
 	}
 
-	session, err := h.repo.Create(c.UserContext(), params)
+	session, err := h.createSessionWithLiveKit(c.UserContext(), params)
 	if err != nil {
+		if errors.Is(err, livekit.ErrCreateRoomFailed) {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(errorResponse{Error: "failed to create LiveKit room"})
+		}
 		if errors.Is(err, repository.ErrDuplicateRoomName) {
 			return c.Status(fiber.StatusConflict).JSON(errorResponse{Error: "room name already exists, please try again"})
 		}
+
 		return c.Status(fiber.StatusInternalServerError).JSON(errorResponse{Error: "failed to create session"})
 	}
 

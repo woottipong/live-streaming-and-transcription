@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	backendlivekit "github.com/iwoody/realtime-streaming/backend/internal/livekit"
 )
 
 func TestCreateSession(t *testing.T) {
@@ -38,8 +39,17 @@ func TestCreateSession(t *testing.T) {
 			}, nil
 		},
 	}
+	roomClient := &stubRoomClient{
+		createRoomFn: func(_ context.Context, roomName string) error {
+			if roomName == "" {
+				t.Fatalf("expected room name")
+			}
 
-	app := New(repo)
+			return nil
+		},
+	}
+
+	app := NewWithLiveKit(repo, roomClient)
 
 	body := bytes.NewBufferString(`{"title":"Town Hall","language":"th-TH","source_type":"browser","asr_provider":"deepgram","subtitle_enabled":true}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/sessions", body)
@@ -68,7 +78,7 @@ func TestCreateSession(t *testing.T) {
 }
 
 func TestCreateSessionValidation(t *testing.T) {
-	app := New(&stubSessionRepository{})
+	app := NewWithLiveKit(&stubSessionRepository{}, &stubRoomClient{})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/sessions", strings.NewReader(`{"language":"th-TH"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -109,7 +119,7 @@ func TestGetSessionByID(t *testing.T) {
 		},
 	}
 
-	app := New(repo)
+	app := NewWithLiveKit(repo, &stubRoomClient{})
 	req := httptest.NewRequest(http.MethodGet, "/api/sessions/"+sessionID.String(), nil)
 
 	resp, err := app.Test(req)
@@ -138,7 +148,7 @@ func TestGetSessionNotFound(t *testing.T) {
 		},
 	}
 
-	app := New(repo)
+	app := NewWithLiveKit(repo, &stubRoomClient{})
 	req := httptest.NewRequest(http.MethodGet, "/api/sessions/33333333-3333-3333-3333-333333333333", nil)
 
 	resp, err := app.Test(req)
@@ -180,7 +190,7 @@ func TestPatchSession(t *testing.T) {
 		},
 	}
 
-	app := New(repo)
+	app := NewWithLiveKit(repo, &stubRoomClient{})
 	req := httptest.NewRequest(http.MethodPatch, "/api/sessions/"+sessionID.String(), strings.NewReader(`{"title":"Updated title","description":"Updated description"}`))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -204,7 +214,7 @@ func TestPatchSession(t *testing.T) {
 }
 
 func TestPatchSessionValidation(t *testing.T) {
-	app := New(&stubSessionRepository{})
+	app := NewWithLiveKit(&stubSessionRepository{}, &stubRoomClient{})
 
 	req := httptest.NewRequest(http.MethodPatch, "/api/sessions/44444444-4444-4444-4444-444444444444", strings.NewReader(`{"language":"   "}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -251,7 +261,7 @@ func TestPatchSessionClearsDescription(t *testing.T) {
 		},
 	}
 
-	app := New(repo)
+	app := NewWithLiveKit(repo, &stubRoomClient{})
 	req := httptest.NewRequest(http.MethodPatch, "/api/sessions/"+sessionID.String(), strings.NewReader(`{"description":null}`))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -274,10 +284,85 @@ func TestPatchSessionClearsDescription(t *testing.T) {
 	}
 }
 
+func TestCreateSessionReturnsServiceUnavailableWhenLiveKitFails(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{}, &stubRoomClient{
+		createRoomFn: func(context.Context, string) error {
+			return backendlivekit.ErrCreateRoomFailed
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sessions", strings.NewReader(`{"title":"Town Hall","language":"th-TH","source_type":"browser","asr_provider":"deepgram"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503, got %d", resp.StatusCode)
+	}
+}
+
+func TestCreateSessionDeletesRoomWhenRepositoryCreateFails(t *testing.T) {
+	deleteCalled := false
+	roomClient := &stubRoomClient{
+		createRoomFn: func(context.Context, string) error {
+			return nil
+		},
+		deleteRoomFn: func(context.Context, string) error {
+			deleteCalled = true
+			return nil
+		},
+	}
+	repo := &stubSessionRepository{
+		createFn: func(context.Context, CreateSessionParams) (Session, error) {
+			return Session{}, errors.New("insert failed")
+		},
+	}
+
+	app := NewWithLiveKit(repo, roomClient)
+	req := httptest.NewRequest(http.MethodPost, "/api/sessions", strings.NewReader(`{"title":"Town Hall","language":"th-TH","source_type":"browser","asr_provider":"deepgram"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", resp.StatusCode)
+	}
+	if !deleteCalled {
+		t.Fatal("expected delete room cleanup to be called")
+	}
+}
+
 type stubSessionRepository struct {
 	createFn  func(context.Context, CreateSessionParams) (Session, error)
 	getByIDFn func(context.Context, uuid.UUID) (Session, error)
 	updateFn  func(context.Context, uuid.UUID, UpdateSessionParams) (Session, error)
+}
+
+type stubRoomClient struct {
+	createRoomFn func(context.Context, string) error
+	deleteRoomFn func(context.Context, string) error
+}
+
+func (s *stubRoomClient) CreateRoom(ctx context.Context, roomName string) error {
+	if s.createRoomFn == nil {
+		return nil
+	}
+
+	return s.createRoomFn(ctx, roomName)
+}
+
+func (s *stubRoomClient) DeleteRoom(ctx context.Context, roomName string) error {
+	if s.deleteRoomFn == nil {
+		return nil
+	}
+
+	return s.deleteRoomFn(ctx, roomName)
 }
 
 func (s *stubSessionRepository) Create(ctx context.Context, params CreateSessionParams) (Session, error) {

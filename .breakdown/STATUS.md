@@ -4,16 +4,16 @@
 **Phase 1** — Backend foundation + Frontend skeleton + LiveKit integration
 
 ## Overall Progress
-- Phase 1: 10% (task-001 done)
+- Phase 1: 20% (task-001 and task-002 done)
 - Phase 2: 0% (not started)
 - Phase 3: 0% (not started)
 
 ## Current Priorities
-1. ทำ session CRUD API + database schema
+1. ทำ session CRUD API
 2. เชื่อม LiveKit room creation
 3. ทำ publisher / viewer flow ผ่าน LiveKit
 4. ทำ admin page สำหรับสร้าง/จัดการ session
-5. เตรียม worker integration บน frontend shell ที่ใช้ shadcn/ui แล้ว
+5. เตรียม token generation และ webhook flow หลัง API พื้นฐานพร้อม
 
 ## Blockers
 - ยังไม่มี
@@ -58,7 +58,7 @@ Viewer page แสดง rolling transcript + subtitle overlay
 | Task | Epic | Area | Status | Priority |
 |------|------|------|--------|----------|
 | task-001-project-scaffold | epic-01 | infra | done | high |
-| task-002-database-schema | epic-02 | backend | todo | high |
+| task-002-database-schema | epic-02 | backend | done | high |
 | task-003-session-crud-api | epic-02 | backend | todo | high |
 | task-004-livekit-room-creation | epic-03 | backend | todo | high |
 | task-005-token-generation-api | epic-03 | backend | todo | high |

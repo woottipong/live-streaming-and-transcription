@@ -12,7 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrSessionNotFound = errors.New("session not found")
+var (
+	ErrSessionNotFound    = errors.New("session not found")
+	ErrDuplicateRoomName  = errors.New("room name already exists")
+	ErrConstraintViolated = errors.New("constraint violated")
+)
 
 type CreateSessionParams struct {
 	Title           string
@@ -92,6 +96,9 @@ func (r *PostgresSessionRepository) Create(ctx context.Context, params CreateSes
 
 	session, err := scanSession(row)
 	if err != nil {
+		if strings.Contains(err.Error(), "duplicate key value") {
+			return model.Session{}, ErrDuplicateRoomName
+		}
 		return model.Session{}, fmt.Errorf("create session: %w", err)
 	}
 
@@ -153,9 +160,8 @@ func (r *PostgresSessionRepository) Update(ctx context.Context, id uuid.UUID, pa
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "violates check constraint") || strings.Contains(err.Error(), "duplicate key value") {
-			return model.Session{}, err
+			return model.Session{}, fmt.Errorf("%w: %s", ErrConstraintViolated, err.Error())
 		}
-
 		return model.Session{}, fmt.Errorf("update session: %w", err)
 	}
 

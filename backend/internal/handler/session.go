@@ -83,6 +83,9 @@ func (h *SessionHandler) Create(c *fiber.Ctx) error {
 
 	session, err := h.repo.Create(c.UserContext(), params)
 	if err != nil {
+		if errors.Is(err, repository.ErrDuplicateRoomName) {
+			return c.Status(fiber.StatusConflict).JSON(errorResponse{Error: "room name already exists, please try again"})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(errorResponse{Error: "failed to create session"})
 	}
 
@@ -128,7 +131,9 @@ func (h *SessionHandler) Update(c *fiber.Ctx) error {
 		if errors.Is(err, repository.ErrSessionNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(errorResponse{Error: "session not found"})
 		}
-
+		if errors.Is(err, repository.ErrConstraintViolated) {
+			return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: "invalid field value"})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(errorResponse{Error: "failed to update session"})
 	}
 
@@ -216,7 +221,14 @@ func (r updateSessionRequest) toUpdateParams() (repository.UpdateSessionParams, 
 		params.SourceType = &sourceType
 	}
 
-	if params.Title == nil && params.Description == nil && !params.ClearDescription && params.Language == nil && params.SourceType == nil && params.ASRProvider == nil && params.SubtitleEnabled == nil {
+	hasUpdate := params.Title != nil ||
+		params.Description != nil ||
+		params.ClearDescription ||
+		params.Language != nil ||
+		params.SourceType != nil ||
+		params.ASRProvider != nil ||
+		params.SubtitleEnabled != nil
+	if !hasUpdate {
 		return repository.UpdateSessionParams{}, errors.New("at least one field must be provided")
 	}
 

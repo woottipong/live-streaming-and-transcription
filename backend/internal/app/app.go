@@ -1,29 +1,21 @@
 package app
 
 import (
-	"context"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/iwoody/realtime-streaming/backend/internal/handler"
 	"github.com/iwoody/realtime-streaming/backend/internal/model"
 	"github.com/iwoody/realtime-streaming/backend/internal/repository"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Type aliases for test convenience.
 type Session = model.Session
 type CreateSessionParams = repository.CreateSessionParams
 type UpdateSessionParams = repository.UpdateSessionParams
 
 var ErrSessionNotFound = repository.ErrSessionNotFound
 
-type SessionRepository interface {
-	Create(context.Context, CreateSessionParams) (Session, error)
-	GetByID(context.Context, uuid.UUID) (Session, error)
-	Update(context.Context, uuid.UUID, UpdateSessionParams) (Session, error)
-}
-
-func New(repo SessionRepository) *fiber.App {
+func New(repo repository.SessionRepository) *fiber.App {
 	app := fiber.New()
 
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -44,6 +36,6 @@ func New(repo SessionRepository) *fiber.App {
 	return app
 }
 
-func NewPostgresRepo(pool *pgxpool.Pool) SessionRepository {
+func NewPostgresRepo(pool *pgxpool.Pool) repository.SessionRepository {
 	return repository.NewPostgresSessionRepository(pool)
 }

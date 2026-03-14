@@ -41,7 +41,9 @@ type UpdateSessionParams struct {
 type SessionRepository interface {
 	Create(context.Context, CreateSessionParams) (model.Session, error)
 	GetByID(context.Context, uuid.UUID) (model.Session, error)
+	GetByRoomName(context.Context, string) (model.Session, error)
 	Update(context.Context, uuid.UUID, UpdateSessionParams) (model.Session, error)
+	UpdateStreamStatusByRoomName(context.Context, string, string) (model.Session, error)
 }
 
 type PostgresSessionRepository struct {
@@ -124,6 +126,25 @@ func (r *PostgresSessionRepository) GetByID(ctx context.Context, id uuid.UUID) (
 	return session, nil
 }
 
+func (r *PostgresSessionRepository) GetByRoomName(ctx context.Context, roomName string) (model.Session, error) {
+	const query = `
+		SELECT id, title, description, room_name, ingress_id, source_type, language, asr_provider,
+			subtitle_enabled, stream_status, transcription_status, started_at, ended_at, created_at, updated_at
+		FROM sessions
+		WHERE room_name = $1
+	`
+
+	session, err := scanSession(r.pool.QueryRow(ctx, query, roomName))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.Session{}, ErrSessionNotFound
+	}
+	if err != nil {
+		return model.Session{}, fmt.Errorf("get session by room name: %w", err)
+	}
+
+	return session, nil
+}
+
 func (r *PostgresSessionRepository) Update(ctx context.Context, id uuid.UUID, params UpdateSessionParams) (model.Session, error) {
 	const query = `
 		UPDATE sessions
@@ -163,6 +184,29 @@ func (r *PostgresSessionRepository) Update(ctx context.Context, id uuid.UUID, pa
 			return model.Session{}, fmt.Errorf("%w: %s", ErrConstraintViolated, err.Error())
 		}
 		return model.Session{}, fmt.Errorf("update session: %w", err)
+	}
+
+	return session, nil
+}
+
+func (r *PostgresSessionRepository) UpdateStreamStatusByRoomName(ctx context.Context, roomName string, streamStatus string) (model.Session, error) {
+	const query = `
+		UPDATE sessions
+		SET stream_status = $2
+		WHERE room_name = $1
+		RETURNING id, title, description, room_name, ingress_id, source_type, language, asr_provider,
+			subtitle_enabled, stream_status, transcription_status, started_at, ended_at, created_at, updated_at
+	`
+
+	session, err := scanSession(r.pool.QueryRow(ctx, query, roomName, streamStatus))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.Session{}, ErrSessionNotFound
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "violates check constraint") {
+			return model.Session{}, fmt.Errorf("%w: %s", ErrConstraintViolated, err.Error())
+		}
+		return model.Session{}, fmt.Errorf("update session stream status by room name: %w", err)
 	}
 
 	return session, nil

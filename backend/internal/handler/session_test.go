@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	backendlivekit "github.com/iwoody/realtime-streaming/backend/internal/livekit"
 	"github.com/iwoody/realtime-streaming/backend/internal/model"
 	"github.com/iwoody/realtime-streaming/backend/internal/repository"
+	livekitproto "github.com/livekit/protocol/livekit"
 )
 
 func TestCreateSessionWithLiveKitUsesDetachedContextForCleanup(t *testing.T) {
@@ -72,6 +74,10 @@ func (*stubRoomClient) CreateViewerToken(string, string, string) (string, error)
 	return "", nil
 }
 
+func (*stubRoomClient) VerifyWebhookEvent(string, []byte) (*livekitproto.WebhookEvent, error) {
+	return nil, backendlivekit.ErrInvalidWebhook
+}
+
 type stubSessionRepository struct {
 	createFn func(context.Context, repository.CreateSessionParams) (model.Session, error)
 }
@@ -88,6 +94,14 @@ func (*stubSessionRepository) GetByID(context.Context, uuid.UUID) (model.Session
 	return model.Session{}, errors.New("unexpected get by id call")
 }
 
+func (*stubSessionRepository) GetByRoomName(context.Context, string) (model.Session, error) {
+	return model.Session{}, errors.New("unexpected get by room name call")
+}
+
 func (*stubSessionRepository) Update(context.Context, uuid.UUID, repository.UpdateSessionParams) (model.Session, error) {
 	return model.Session{}, errors.New("unexpected update call")
+}
+
+func (*stubSessionRepository) UpdateStreamStatusByRoomName(context.Context, string, string) (model.Session, error) {
+	return model.Session{}, errors.New("unexpected update stream status by room name call")
 }

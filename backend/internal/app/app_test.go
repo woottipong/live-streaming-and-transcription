@@ -3,6 +3,8 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	backendlivekit "github.com/iwoody/realtime-streaming/backend/internal/livekit"
 	livekitauth "github.com/livekit/protocol/auth"
+	livekitproto "github.com/livekit/protocol/livekit"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestCreateSession(t *testing.T) {
@@ -461,10 +465,201 @@ func TestCreateSessionTokenNotFound(t *testing.T) {
 	}
 }
 
+func TestLiveKitWebhookTrackPublishedUpdatesStreamStatus(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{
+		updateStreamStatusByRoomNameFn: func(_ context.Context, roomName string, streamStatus string) (Session, error) {
+			if roomName != "webhook-room" {
+				t.Fatalf("unexpected room name: %s", roomName)
+			}
+			if streamStatus != "live" {
+				t.Fatalf("unexpected stream status: %s", streamStatus)
+			}
+
+			return Session{
+				RoomName:     roomName,
+				StreamStatus: streamStatus,
+			}, nil
+		},
+	}, &stubRoomClient{})
+
+	req := newSignedWebhookRequest(t, &livekitproto.WebhookEvent{
+		Event: "track_published",
+		Room:  &livekitproto.Room{Name: "webhook-room"},
+		Track: &livekitproto.TrackInfo{Sid: "TR_test"},
+	})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var got webhookResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if got.Status != "ok" || got.StreamStatus != "live" {
+		t.Fatalf("unexpected response body: %+v", got)
+	}
+}
+
+func TestLiveKitWebhookInvalidSignature(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{}, &stubRoomClient{})
+
+	req := httptest.NewRequest(http.MethodPost, "/internal/livekit/webhook", strings.NewReader(`{"event":"track_published"}`))
+	req.Header.Set("Authorization", "Bearer invalid")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestLiveKitWebhookParticipantLeftSetsEnding(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{
+		updateStreamStatusByRoomNameFn: func(_ context.Context, roomName string, streamStatus string) (Session, error) {
+			if roomName != "webhook-room" {
+				t.Fatalf("unexpected room name: %s", roomName)
+			}
+			if streamStatus != "ending" {
+				t.Fatalf("unexpected stream status: %s", streamStatus)
+			}
+
+			return Session{
+				RoomName:     roomName,
+				StreamStatus: streamStatus,
+			}, nil
+		},
+	}, &stubRoomClient{})
+
+	req := newSignedWebhookRequest(t, &livekitproto.WebhookEvent{
+		Event: "participant_left",
+		Room:  &livekitproto.Room{Name: "webhook-room"},
+		Participant: &livekitproto.ParticipantInfo{
+			Identity:    "publisher-1",
+			IsPublisher: true,
+		},
+	})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestLiveKitWebhookViewerParticipantJoinedIsIgnored(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{}, &stubRoomClient{})
+
+	req := newSignedWebhookRequest(t, &livekitproto.WebhookEvent{
+		Event: "participant_joined",
+		Room:  &livekitproto.Room{Name: "webhook-room"},
+		Participant: &livekitproto.ParticipantInfo{
+			Identity: "viewer-1",
+			Permission: &livekitproto.ParticipantPermission{
+				CanSubscribe: true,
+				CanPublish:   false,
+			},
+		},
+	})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var got webhookResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if got.Status != "ignored" {
+		t.Fatalf("unexpected response body: %+v", got)
+	}
+}
+
+func TestLiveKitWebhookViewerParticipantLeftIsIgnored(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{}, &stubRoomClient{})
+
+	req := newSignedWebhookRequest(t, &livekitproto.WebhookEvent{
+		Event: "participant_left",
+		Room:  &livekitproto.Room{Name: "webhook-room"},
+		Participant: &livekitproto.ParticipantInfo{
+			Identity: "viewer-1",
+			Permission: &livekitproto.ParticipantPermission{
+				CanSubscribe: true,
+				CanPublish:   false,
+			},
+		},
+	})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var got webhookResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if got.Status != "ignored" {
+		t.Fatalf("unexpected response body: %+v", got)
+	}
+}
+
+func TestLiveKitWebhookUnknownEventIsIgnored(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{}, &stubRoomClient{})
+
+	req := newSignedWebhookRequest(t, &livekitproto.WebhookEvent{
+		Event: "room_started",
+		Room:  &livekitproto.Room{Name: "webhook-room"},
+	})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var got webhookResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if got.Status != "ignored" {
+		t.Fatalf("unexpected response body: %+v", got)
+	}
+}
+
 type stubSessionRepository struct {
-	createFn  func(context.Context, CreateSessionParams) (Session, error)
-	getByIDFn func(context.Context, uuid.UUID) (Session, error)
-	updateFn  func(context.Context, uuid.UUID, UpdateSessionParams) (Session, error)
+	createFn                       func(context.Context, CreateSessionParams) (Session, error)
+	getByIDFn                      func(context.Context, uuid.UUID) (Session, error)
+	getByRoomNameFn                func(context.Context, string) (Session, error)
+	updateFn                       func(context.Context, uuid.UUID, UpdateSessionParams) (Session, error)
+	updateStreamStatusByRoomNameFn func(context.Context, string, string) (Session, error)
 }
 
 type stubRoomClient struct {
@@ -506,6 +701,11 @@ func (s *stubRoomClient) CreateViewerToken(roomName string, identity string, nam
 	return s.createViewerTokenFn(roomName, identity, name)
 }
 
+func (s *stubRoomClient) VerifyWebhookEvent(authHeader string, body []byte) (*livekitproto.WebhookEvent, error) {
+	client := backendlivekit.NewClient("http://livekit:7880", "devkey", "secret")
+	return client.VerifyWebhookEvent(authHeader, body)
+}
+
 func (s *stubSessionRepository) Create(ctx context.Context, params CreateSessionParams) (Session, error) {
 	if s.createFn == nil {
 		return Session{}, errors.New("unexpected create call")
@@ -522,12 +722,28 @@ func (s *stubSessionRepository) GetByID(ctx context.Context, id uuid.UUID) (Sess
 	return s.getByIDFn(ctx, id)
 }
 
+func (s *stubSessionRepository) GetByRoomName(ctx context.Context, roomName string) (Session, error) {
+	if s.getByRoomNameFn == nil {
+		return Session{}, errors.New("unexpected get by room name call")
+	}
+
+	return s.getByRoomNameFn(ctx, roomName)
+}
+
 func (s *stubSessionRepository) Update(ctx context.Context, id uuid.UUID, params UpdateSessionParams) (Session, error) {
 	if s.updateFn == nil {
 		return Session{}, errors.New("unexpected update call")
 	}
 
 	return s.updateFn(ctx, id, params)
+}
+
+func (s *stubSessionRepository) UpdateStreamStatusByRoomName(ctx context.Context, roomName string, streamStatus string) (Session, error) {
+	if s.updateStreamStatusByRoomNameFn == nil {
+		return Session{}, errors.New("unexpected update stream status call")
+	}
+
+	return s.updateStreamStatusByRoomNameFn(ctx, roomName, streamStatus)
 }
 
 func stringPtr(value string) *string {
@@ -576,4 +792,35 @@ func verifyTokenClaims(t *testing.T, raw string) *livekitauth.ClaimGrants {
 	}
 
 	return claims
+}
+
+type webhookResponse struct {
+	Status       string `json:"status"`
+	StreamStatus string `json:"stream_status"`
+}
+
+func newSignedWebhookRequest(t *testing.T, event *livekitproto.WebhookEvent) *http.Request {
+	t.Helper()
+
+	body, err := protojson.Marshal(event)
+	if err != nil {
+		t.Fatalf("marshal webhook event: %v", err)
+	}
+
+	sum := sha256.Sum256(body)
+	hash := base64.StdEncoding.EncodeToString(sum[:])
+
+	token, err := livekitauth.NewAccessToken("devkey", "secret").
+		SetValidFor(5 * time.Minute).
+		SetSha256(hash).
+		ToJWT()
+	if err != nil {
+		t.Fatalf("create webhook token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/internal/livekit/webhook", bytes.NewReader(body))
+	req.Header.Set("Authorization", token)
+	req.Header.Set("Content-Type", "application/webhook+json")
+
+	return req
 }

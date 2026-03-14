@@ -4,16 +4,16 @@
 **Phase 1** — Backend foundation + Frontend skeleton + LiveKit integration
 
 ## Overall Progress
-- Phase 1: 50% (task-001, task-002, task-003, task-004, and task-005 done)
+- Phase 1: 60% (task-001, task-002, task-003, task-004, task-005, and task-006 done)
 - Phase 2: 0% (not started)
 - Phase 3: 0% (not started)
 
 ## Current Priorities
-1. ทำ LiveKit webhook receiver
-2. ทำ publisher / viewer flow ผ่าน LiveKit
-3. ทำ admin page สำหรับสร้าง/จัดการ session
-4. ทำ worker scaffold
-5. ทำ viewer media playback
+1. ทำ publisher / viewer flow ผ่าน LiveKit
+2. ทำ admin page สำหรับสร้าง/จัดการ session
+3. ทำ worker scaffold
+4. ทำ viewer media playback
+5. ทำ RTMP ingress setup
 
 ## Blockers
 - ยังไม่มี
@@ -37,9 +37,9 @@
 ## Task Index
 
 ### Current Status Snapshot
-- `✅ done`: task-001, task-002, task-003, task-004, task-005
+- `✅ done`: task-001, task-002, task-003, task-004, task-005, task-006
 - `🚧 in progress`: ยังไม่มี
-- `🎯 next up`: task-006-livekit-webhook-receiver
+- `🎯 next up`: task-007-publisher-browser-flow
 - `⛔ blocked`: ยังไม่มี
 
 ### Done So Far
@@ -49,10 +49,10 @@
   task-003-session-crud-api
   task-004-livekit-room-creation
   task-005-token-generation-api
+  task-006-livekit-webhook-receiver
 
 ### Ready To Start
 - `🎯` Phase 1
-  task-006-livekit-webhook-receiver
   task-007-publisher-browser-flow
   task-008-rtmp-ingress-setup
   task-009-viewer-media-playback
@@ -83,7 +83,7 @@
 | task-003-session-crud-api | backend | high | ✅ done |
 | task-004-livekit-room-creation | backend | high | ✅ done |
 | task-005-token-generation-api | backend | high | ✅ done |
-| task-006-livekit-webhook-receiver | backend | high | 🎯 next |
+| task-006-livekit-webhook-receiver | backend | high | ✅ done |
 | task-007-publisher-browser-flow | frontend | high | 📝 todo |
 | task-008-rtmp-ingress-setup | backend | medium | 📝 todo |
 | task-009-viewer-media-playback | frontend | high | 📝 todo |

@@ -10,7 +10,7 @@ epic-03-livekit-integration
 backend
 
 ## Status
-todo
+done
 
 ## Priority
 high
@@ -43,17 +43,21 @@ high
 - backend/internal/livekit/webhook.go
 
 ## Test Checklist
-- [ ] POST webhook ด้วย valid signature ผ่าน
-- [ ] POST webhook ด้วย invalid signature ได้ 401
-- [ ] TrackPublished -> stream_status เป็น live
-- [ ] ParticipantLeft -> stream_status เป็น ending/ended
-- [ ] unknown event ไม่ error
+- [x] POST webhook ด้วย valid signature ผ่าน
+- [x] POST webhook ด้วย invalid signature ได้ 401
+- [x] TrackPublished -> stream_status เป็น live
+- [x] ParticipantLeft -> stream_status เป็น ending/ended
+- [x] unknown event ไม่ error
 
 ## Outcome
+เพิ่ม `POST /internal/livekit/webhook` ที่ตรวจ signature ด้วย LiveKit auth SDK, parse payload เป็น webhook event, และ map event ไปอัปเดต `stream_status` ตาม `room_name`
 
+รองรับ event สำคัญใน MVP ได้แก่ `ParticipantJoined`, `TrackPublished`, `ParticipantLeft`, `IngressStarted`, และ `IngressEnded` พร้อม log event ที่รับเข้าและ ignore event ที่ไม่รู้จักอย่างปลอดภัย
 
 ## Completion Evidence
-
+- รัน `env GOCACHE=/tmp/go-cache go test ./...` ใน `backend/` ผ่าน
+- Automated tests ครอบคลุม valid signature, invalid signature (`401`), `track_published -> live`, `participant_left -> ending`, และ unknown event -> ignored
+- webhook route ตอบกลับได้โดยไม่ crash เมื่อเจอ event ที่ไม่อยู่ใน scope
 
 ## Completed At
-
+2026-03-15 02:35:00 +07

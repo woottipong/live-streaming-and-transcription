@@ -19,6 +19,7 @@ var ErrSessionNotFound = repository.ErrSessionNotFound
 type LiveKitClient interface {
 	backendlivekit.RoomClient
 	backendlivekit.TokenClient
+	backendlivekit.WebhookVerifier
 }
 
 func New(repo repository.SessionRepository) *fiber.App {
@@ -42,6 +43,7 @@ func NewWithLiveKit(repo repository.SessionRepository, liveKitClient LiveKitClie
 	})
 
 	handler.NewSessionHandler(repo, liveKitClient, liveKitClient).Register(app)
+	handler.NewWebhookHandler(repo, liveKitClient).Register(app)
 
 	return app
 }

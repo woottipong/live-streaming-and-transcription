@@ -51,7 +51,7 @@ Triggered by LiveKit webhook `TrackPublished` (audio track), NOT `ParticipantJoi
 
 ## Development Workflow
 
-This project uses a task-breakdown system defined in [docs/WORKFLOW.md](docs/WORKFLOW.md):
+This project uses a task-breakdown system:
 
 - `docs/ARCHITECTURE.md` — source of truth for system design
 - `.breakdown/STATUS.md` — source of truth for task progress

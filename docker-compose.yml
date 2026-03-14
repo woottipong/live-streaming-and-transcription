@@ -3,7 +3,6 @@ services:
     image: node:22-bookworm-slim
     working_dir: /app
     environment:
-      FRONTEND_PORT: ${FRONTEND_PORT:-3000}
       WATCHPACK_POLLING: "true"
       NEXT_TELEMETRY_DISABLED: "1"
     command: >
@@ -11,7 +10,7 @@ services:
       corepack enable &&
       pnpm config set store-dir /pnpm/store &&
       pnpm install &&
-      pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}
+      pnpm dev --hostname 0.0.0.0 --port 3000
       "
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
@@ -22,42 +21,48 @@ services:
       - pnpm-store:/pnpm/store
 
   backend:
-    image: golang:1.25-bookworm
+    image: golang:1.26-bookworm
     working_dir: /app
     environment:
-      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      BACKEND_PORT: "8080"
       GOPROXY: https://proxy.golang.org,direct
       GOSUMDB: sum.golang.org
       GOTOOLCHAIN: auto
     command: >
-      sh -lc "
-      /usr/local/go/bin/go run github.com/air-verse/air@latest -c .air.toml
+      bash -c "
+      go run github.com/air-verse/air@latest -c .air.toml
       "
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./backend:/app
-      - go-pkg-mod:/go/pkg/mod
-      - go-build-cache:/root/.cache/go-build
+      - go-pkg-mod-backend:/go/pkg/mod
+      - go-build-cache-backend:/root/.cache/go-build
 
   worker:
-    image: golang:1.25-bookworm
+    image: golang:1.26-bookworm
     working_dir: /app
     environment:
-      WORKER_PORT: ${WORKER_PORT:-8081}
+      WORKER_PORT: "8081"
       GOPROXY: https://proxy.golang.org,direct
       GOSUMDB: sum.golang.org
       GOTOOLCHAIN: auto
     command: >
-      sh -lc "
-      /usr/local/go/bin/go run github.com/air-verse/air@latest -c .air.toml
+      bash -c "
+      go run github.com/air-verse/air@latest -c .air.toml
       "
     ports:
       - "${WORKER_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./worker:/app
-      - go-pkg-mod:/go/pkg/mod
-      - go-build-cache:/root/.cache/go-build
+      - go-pkg-mod-worker:/go/pkg/mod
+      - go-build-cache-worker:/root/.cache/go-build
 
   postgres:
     image: postgres:17-alpine
@@ -92,6 +97,8 @@ volumes:
   frontend-node-modules:
   frontend-next:
   pnpm-store:
-  go-pkg-mod:
-  go-build-cache:
+  go-pkg-mod-backend:
+  go-pkg-mod-worker:
+  go-build-cache-backend:
+  go-build-cache-worker:
   postgres-data:

@@ -1,34 +1,33 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net"
+	"net/url"
 	"os"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/iwoody/realtime-streaming/backend/internal/app"
+	"github.com/iwoody/realtime-streaming/backend/internal/repository"
 )
 
 func main() {
 	port := getEnv("BACKEND_PORT", "8080")
+	databaseURL := getDatabaseURL()
 
-	app := fiber.New()
+	ctx := context.Background()
+	pool, err := repository.NewPostgresPool(ctx, databaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pool.Close()
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"service": "backend",
-			"message": "hello world",
-		})
-	})
-
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status": "ok",
-		})
-	})
+	fiberApp := app.New(app.NewPostgresRepo(pool))
 
 	addr := ":" + port
 	log.Printf("backend listening on %s", addr)
 
-	if err := app.Listen(addr); err != nil {
+	if err := fiberApp.Listen(addr); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -39,4 +38,29 @@ func getEnv(key string, fallback string) string {
 	}
 
 	return fallback
+}
+
+func getDatabaseURL() string {
+	if value := os.Getenv("DATABASE_URL"); value != "" {
+		return value
+	}
+
+	user := getEnv("POSTGRES_USER", "postgres")
+	password := getEnv("POSTGRES_PASSWORD", "postgres")
+	host := getEnv("POSTGRES_HOST", "postgres")
+	port := getEnv("POSTGRES_PORT", "5432")
+	database := getEnv("POSTGRES_DB", "realtime_streaming")
+
+	databaseURL := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(user, password),
+		Host:   net.JoinHostPort(host, port),
+		Path:   database,
+	}
+
+	query := databaseURL.Query()
+	query.Set("sslmode", "disable")
+	databaseURL.RawQuery = query.Encode()
+
+	return databaseURL.String()
 }

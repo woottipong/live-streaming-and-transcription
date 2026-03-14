@@ -10,7 +10,7 @@ epic-02-session-management
 backend
 
 ## Status
-todo
+done
 
 ## Priority
 high
@@ -49,17 +49,22 @@ high
 - backend/internal/model/
 
 ## Test Checklist
-- [ ] POST /api/sessions สร้าง session ได้
-- [ ] GET /api/sessions/:id ดึงได้
-- [ ] PATCH /api/sessions/:id update ได้
-- [ ] 404 เมื่อ GET session ที่ไม่มี
-- [ ] 400 เมื่อ POST ไม่มี required field
+- [x] POST /api/sessions สร้าง session ได้
+- [x] GET /api/sessions/:id ดึงได้
+- [x] PATCH /api/sessions/:id update ได้
+- [x] 404 เมื่อ GET session ที่ไม่มี
+- [x] 400 เมื่อ POST ไม่มี required field
 
 ## Outcome
+เพิ่ม Session CRUD API ครบ 3 endpoint พร้อม request validation, JSON error responses, และ PostgreSQL repository ผ่าน `pgxpool`
 
+สร้าง Fiber app wiring ใหม่ให้ backend bootstrap ด้วย database connection และแยกโค้ดเป็น `internal/app`, `internal/handler`, `internal/repository`, `internal/model`
 
 ## Completion Evidence
-
+รัน `go test ./...` ใน `backend/` ผ่าน
+ทดสอบ behavior ของ `POST /api/sessions`, `GET /api/sessions/:id`, `PATCH /api/sessions/:id` ผ่านด้วย handler tests
+ทดสอบกรณี validation error (`400`) และไม่พบ session (`404`) ผ่าน
+POST สร้าง `room_name` อัตโนมัติจาก backend โดยไม่บังคับให้ client ส่งมา
 
 ## Completed At
-
+2026-03-15 01:05:00 +07

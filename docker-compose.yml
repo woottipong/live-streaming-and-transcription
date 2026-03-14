@@ -25,6 +25,11 @@ services:
     working_dir: /app
     environment:
       BACKEND_PORT: "8080"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-realtime_streaming}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       GOPROXY: https://proxy.golang.org,direct
       GOSUMDB: sum.golang.org
       GOTOOLCHAIN: auto

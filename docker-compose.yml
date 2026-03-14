@@ -93,6 +93,9 @@ services:
     image: livekit/livekit-server:latest
     container_name: realtime-streaming-livekit
     environment:
+      # Local dev mode uses the built-in dev credentials (devkey/secret).
+      # Keep this in sync with the backend env, but do not expect custom
+      # LIVEKIT_API_KEY/LIVEKIT_API_SECRET values to reconfigure --dev mode.
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}:${LIVEKIT_API_SECRET:-secret}"
     command:
       - --dev

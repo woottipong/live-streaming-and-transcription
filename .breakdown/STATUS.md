@@ -22,73 +22,94 @@
 
 ## Epic Summary
 
-### epic-01-project-setup
-ตั้งโครงสร้างโปรเจกต์ backend, frontend, database, Docker
-
-### epic-02-session-management
-Session CRUD, database schema, session state management
-
-### epic-03-livekit-integration
-LiveKit room creation, token generation, webhook receiver, ingress setup
-
-### epic-04-publisher-flow
-Publisher connect ผ่าน browser + RTMP/OBS ingress
-
-### epic-05-viewer-flow
-Viewer connect เข้า LiveKit room ดู live stream
-
-### epic-06-admin-web
-Admin page สำหรับสร้าง session, ดูสถานะ, แสดง room info
-
-### epic-07-transcription-worker
-Worker service: join room, subscribe audio, stream ไป ASR, normalize transcript
-
-### epic-08-transcript-delivery
-WebSocket hub, transcript broadcast ไป viewer, persist final transcript
-
-### epic-09-viewer-transcript-ui
-Viewer page แสดง rolling transcript + subtitle overlay
+- `✅ epic-01-project-setup` — โครงโปรเจกต์ backend, frontend, database, Docker พร้อมใช้งาน
+- `✅ epic-02-session-management` — API และฐานข้อมูลสำหรับสร้าง, ดู, และแก้ไข session
+- `🎯 epic-03-livekit-integration` — เชื่อม LiveKit สำหรับ room, token, webhook, และ ingress
+- `📝 epic-04-publisher-flow` — รองรับ publisher ผ่าน browser และ RTMP/OBS
+- `📝 epic-05-viewer-flow` — รองรับ viewer สำหรับดู live stream ผ่าน LiveKit
+- `📝 epic-06-admin-web` — หน้า admin สำหรับสร้าง session, ดูสถานะ, และจัดการ room info
+- `📝 epic-07-transcription-worker` — worker สำหรับ join room, subscribe audio, ส่งเข้า ASR, และ normalize transcript
+- `📝 epic-08-transcript-delivery` — กระจาย transcript ผ่าน WebSocket และ persist final transcript
+- `📝 epic-09-viewer-transcript-ui` — หน้า viewer สำหรับแสดง rolling transcript และ subtitle overlay
 
 ---
 
 ## Task Index
 
+### Current Status Snapshot
+- `✅ done`: task-001, task-002, task-003, task-004
+- `🚧 in progress`: ยังไม่มี
+- `🎯 next up`: task-005-token-generation-api
+- `⛔ blocked`: ยังไม่มี
+
+### Done So Far
+- `✅` Phase 1
+  task-001-project-scaffold
+  task-002-database-schema
+  task-003-session-crud-api
+  task-004-livekit-room-creation
+
+### Ready To Start
+- `🎯` Phase 1
+  task-005-token-generation-api
+  task-006-livekit-webhook-receiver
+  task-007-publisher-browser-flow
+  task-008-rtmp-ingress-setup
+  task-009-viewer-media-playback
+  task-010-admin-session-page
+
+### Backlog
+- `📝` Phase 2
+  task-011-worker-scaffold
+  task-012-worker-livekit-join
+  task-013-worker-audio-subscribe
+  task-014-worker-asr-streaming
+  task-015-worker-control-api
+  task-016-worker-transcript-normalize
+- `📝` Phase 3
+  task-017-transcript-ws-hub
+  task-018-transcript-event-receiver
+  task-019-transcript-persist
+  task-020-viewer-transcript-ws-client
+  task-021-viewer-subtitle-overlay
+  task-022-auto-start-transcription
+
 ### Phase 1 — Backend + Frontend + LiveKit
 
-| Task | Epic | Area | Status | Priority |
-|------|------|------|--------|----------|
-| task-001-project-scaffold | epic-01 | infra | done | high |
-| task-002-database-schema | epic-02 | backend | done | high |
-| task-003-session-crud-api | epic-02 | backend | done | high |
-| task-004-livekit-room-creation | epic-03 | backend | done | high |
-| task-005-token-generation-api | epic-03 | backend | todo | high |
-| task-006-livekit-webhook-receiver | epic-03 | backend | todo | high |
-| task-007-publisher-browser-flow | epic-04 | frontend | todo | high |
-| task-008-rtmp-ingress-setup | epic-04 | backend | todo | medium |
-| task-009-viewer-media-playback | epic-05 | frontend | todo | high |
-| task-010-admin-session-page | epic-06 | frontend | todo | high |
+| Task | Area | Priority | Status |
+|------|------|----------|--------|
+| task-001-project-scaffold | infra | high | ✅ done |
+| task-002-database-schema | backend | high | ✅ done |
+| task-003-session-crud-api | backend | high | ✅ done |
+| task-004-livekit-room-creation | backend | high | ✅ done |
+| task-005-token-generation-api | backend | high | 🎯 next |
+| task-006-livekit-webhook-receiver | backend | high | 📝 todo |
+| task-007-publisher-browser-flow | frontend | high | 📝 todo |
+| task-008-rtmp-ingress-setup | backend | medium | 📝 todo |
+| task-009-viewer-media-playback | frontend | high | 📝 todo |
+| task-010-admin-session-page | frontend | high | 📝 todo |
 
 ### Phase 2 — Transcription Worker
 
-| Task | Epic | Area | Status | Priority |
-|------|------|------|--------|----------|
-| task-011-worker-scaffold | epic-07 | worker | todo | high |
-| task-012-worker-livekit-join | epic-07 | worker | todo | high |
-| task-013-worker-audio-subscribe | epic-07 | worker | todo | high |
-| task-014-worker-asr-streaming | epic-07 | worker | todo | high |
-| task-015-worker-control-api | epic-07 | worker | todo | high |
-| task-016-worker-transcript-normalize | epic-07 | worker | todo | medium |
+| Task | Area | Priority | Status |
+|------|------|----------|--------|
+| task-011-worker-scaffold | worker | high | 📝 todo |
+| task-012-worker-livekit-join | worker | high | 📝 todo |
+| task-013-worker-audio-subscribe | worker | high | 📝 todo |
+| task-014-worker-asr-streaming | worker | high | 📝 todo |
+| task-015-worker-control-api | worker | high | 📝 todo |
+| task-016-worker-transcript-normalize | worker | medium | 📝 todo |
 
 ### Phase 3 — Transcript Delivery + UI
 
-| Task | Epic | Area | Status | Priority |
-|------|------|------|--------|----------|
-| task-017-transcript-ws-hub | epic-08 | backend | todo | high |
-| task-018-transcript-event-receiver | epic-08 | backend | todo | high |
-| task-019-transcript-persist | epic-08 | backend | todo | high |
-| task-020-viewer-transcript-ws-client | epic-09 | frontend | todo | high |
-| task-021-viewer-subtitle-overlay | epic-09 | frontend | todo | medium |
-| task-022-auto-start-transcription | epic-03 | backend | todo | high |
+| Task | Area | Priority | Status |
+|------|------|----------|--------|
+| task-017-transcript-ws-hub | backend | high | 📝 todo |
+| task-018-transcript-event-receiver | backend | high | 📝 todo |
+| task-019-transcript-persist | backend | high | 📝 todo |
+| task-020-viewer-transcript-ws-client | frontend | high | 📝 todo |
+| task-021-viewer-subtitle-overlay | frontend | medium | 📝 todo |
+| task-022-auto-start-transcription | backend | high | 📝 todo |
 
 ---
 

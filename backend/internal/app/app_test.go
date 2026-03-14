@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	backendlivekit "github.com/iwoody/realtime-streaming/backend/internal/livekit"
+	livekitauth "github.com/livekit/protocol/auth"
 )
 
 func TestCreateSession(t *testing.T) {
@@ -338,6 +339,128 @@ func TestCreateSessionDeletesRoomWhenRepositoryCreateFails(t *testing.T) {
 	}
 }
 
+func TestCreatePublisherToken(t *testing.T) {
+	sessionID := uuid.MustParse("66666666-6666-6666-6666-666666666666")
+	app := NewWithLiveKit(&stubSessionRepository{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (Session, error) {
+			if id != sessionID {
+				t.Fatalf("unexpected session id: %s", id)
+			}
+
+			return Session{
+				ID:       sessionID,
+				RoomName: "publisher-room",
+			}, nil
+		},
+	}, &stubRoomClient{
+		createPublisherTokenFn: func(roomName string, identity string, name string) (string, error) {
+			if roomName != "publisher-room" {
+				t.Fatalf("unexpected room name: %s", roomName)
+			}
+			if identity != "publisher-123" {
+				t.Fatalf("unexpected identity: %s", identity)
+			}
+			if name != "Publisher One" {
+				t.Fatalf("unexpected name: %s", name)
+			}
+
+			return mustCreateToken(t, "devkey", "secret", roomName, identity, name, true), nil
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sessions/"+sessionID.String()+"/token/publisher", strings.NewReader(`{"identity":"publisher-123","name":"Publisher One"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var got tokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if got.Identity != "publisher-123" || got.RoomName != "publisher-room" || got.Token == "" {
+		t.Fatalf("unexpected response body: %+v", got)
+	}
+
+	claims := verifyTokenClaims(t, got.Token)
+	if claims.Video == nil || claims.Video.Room != "publisher-room" || !claims.Video.GetCanPublish() || !claims.Video.GetCanSubscribe() {
+		t.Fatalf("unexpected token grants: %+v", claims.Video)
+	}
+}
+
+func TestCreateViewerToken(t *testing.T) {
+	sessionID := uuid.MustParse("77777777-7777-7777-7777-777777777777")
+	app := NewWithLiveKit(&stubSessionRepository{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (Session, error) {
+			if id != sessionID {
+				t.Fatalf("unexpected session id: %s", id)
+			}
+
+			return Session{
+				ID:       sessionID,
+				RoomName: "viewer-room",
+			}, nil
+		},
+	}, &stubRoomClient{
+		createViewerTokenFn: func(roomName string, identity string, name string) (string, error) {
+			if roomName != "viewer-room" {
+				t.Fatalf("unexpected room name: %s", roomName)
+			}
+
+			return mustCreateToken(t, "devkey", "secret", roomName, identity, name, false), nil
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sessions/"+sessionID.String()+"/token/viewer", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var got tokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if got.Identity == "" || got.RoomName != "viewer-room" || got.Token == "" {
+		t.Fatalf("unexpected response body: %+v", got)
+	}
+
+	claims := verifyTokenClaims(t, got.Token)
+	if claims.Video == nil || claims.Video.Room != "viewer-room" || claims.Video.GetCanPublish() || !claims.Video.GetCanSubscribe() {
+		t.Fatalf("unexpected token grants: %+v", claims.Video)
+	}
+}
+
+func TestCreateSessionTokenNotFound(t *testing.T) {
+	app := NewWithLiveKit(&stubSessionRepository{
+		getByIDFn: func(context.Context, uuid.UUID) (Session, error) {
+			return Session{}, ErrSessionNotFound
+		},
+	}, &stubRoomClient{})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sessions/88888888-8888-8888-8888-888888888888/token/publisher", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", resp.StatusCode)
+	}
+}
+
 type stubSessionRepository struct {
 	createFn  func(context.Context, CreateSessionParams) (Session, error)
 	getByIDFn func(context.Context, uuid.UUID) (Session, error)
@@ -345,8 +468,10 @@ type stubSessionRepository struct {
 }
 
 type stubRoomClient struct {
-	createRoomFn func(context.Context, string) error
-	deleteRoomFn func(context.Context, string) error
+	createRoomFn           func(context.Context, string) error
+	deleteRoomFn           func(context.Context, string) error
+	createPublisherTokenFn func(string, string, string) (string, error)
+	createViewerTokenFn    func(string, string, string) (string, error)
 }
 
 func (s *stubRoomClient) CreateRoom(ctx context.Context, roomName string) error {
@@ -363,6 +488,22 @@ func (s *stubRoomClient) DeleteRoom(ctx context.Context, roomName string) error 
 	}
 
 	return s.deleteRoomFn(ctx, roomName)
+}
+
+func (s *stubRoomClient) CreatePublisherToken(roomName string, identity string, name string) (string, error) {
+	if s.createPublisherTokenFn == nil {
+		return "", nil
+	}
+
+	return s.createPublisherTokenFn(roomName, identity, name)
+}
+
+func (s *stubRoomClient) CreateViewerToken(roomName string, identity string, name string) (string, error) {
+	if s.createViewerTokenFn == nil {
+		return "", nil
+	}
+
+	return s.createViewerTokenFn(roomName, identity, name)
 }
 
 func (s *stubSessionRepository) Create(ctx context.Context, params CreateSessionParams) (Session, error) {
@@ -391,4 +532,48 @@ func (s *stubSessionRepository) Update(ctx context.Context, id uuid.UUID, params
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+type tokenResponse struct {
+	Token    string `json:"token"`
+	Identity string `json:"identity"`
+	RoomName string `json:"room_name"`
+}
+
+func mustCreateToken(t *testing.T, apiKey string, apiSecret string, roomName string, identity string, name string, canPublish bool) string {
+	t.Helper()
+
+	grant := &livekitauth.VideoGrant{
+		RoomJoin: true,
+		Room:     roomName,
+	}
+	grant.SetCanPublish(canPublish)
+	grant.SetCanSubscribe(true)
+
+	token, err := livekitauth.NewAccessToken(apiKey, apiSecret).
+		SetIdentity(identity).
+		SetName(name).
+		SetVideoGrant(grant).
+		ToJWT()
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	return token
+}
+
+func verifyTokenClaims(t *testing.T, raw string) *livekitauth.ClaimGrants {
+	t.Helper()
+
+	verifier, err := livekitauth.ParseAPIToken(raw)
+	if err != nil {
+		t.Fatalf("parse token: %v", err)
+	}
+
+	_, claims, err := verifier.Verify("secret")
+	if err != nil {
+		t.Fatalf("verify token: %v", err)
+	}
+
+	return claims
 }

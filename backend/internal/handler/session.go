@@ -16,8 +16,9 @@ import (
 )
 
 type SessionHandler struct {
-	repo       repository.SessionRepository
-	roomClient livekit.RoomClient
+	repo        repository.SessionRepository
+	roomClient  livekit.RoomClient
+	tokenClient livekit.TokenClient
 }
 
 const liveKitCleanupTimeout = 5 * time.Second
@@ -38,6 +39,17 @@ type updateSessionRequest struct {
 	Language        patchStringField `json:"language"`
 	ASRProvider     patchStringField `json:"asr_provider"`
 	SubtitleEnabled *bool            `json:"subtitle_enabled"`
+}
+
+type createSessionTokenRequest struct {
+	Identity *string `json:"identity"`
+	Name     *string `json:"name"`
+}
+
+type createSessionTokenResponse struct {
+	Token    string `json:"token"`
+	Identity string `json:"identity"`
+	RoomName string `json:"room_name"`
 }
 
 type errorResponse struct {
@@ -66,10 +78,11 @@ func (f *patchStringField) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func NewSessionHandler(repo repository.SessionRepository, roomClient livekit.RoomClient) *SessionHandler {
+func NewSessionHandler(repo repository.SessionRepository, roomClient livekit.RoomClient, tokenClient livekit.TokenClient) *SessionHandler {
 	return &SessionHandler{
-		repo:       repo,
-		roomClient: roomClient,
+		repo:        repo,
+		roomClient:  roomClient,
+		tokenClient: tokenClient,
 	}
 }
 
@@ -78,6 +91,8 @@ func (h *SessionHandler) Register(app *fiber.App) {
 	api.Post("/", h.Create)
 	api.Get("/:id", h.GetByID)
 	api.Patch("/:id", h.Update)
+	api.Post("/:id/token/publisher", h.CreatePublisherToken)
+	api.Post("/:id/token/viewer", h.CreateViewerToken)
 }
 
 func (h *SessionHandler) createSessionWithLiveKit(ctx context.Context, params repository.CreateSessionParams) (model.Session, error) {
@@ -172,6 +187,69 @@ func (h *SessionHandler) Update(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(session)
+}
+
+func (h *SessionHandler) CreatePublisherToken(c *fiber.Ctx) error {
+	return h.createToken(c, "publisher")
+}
+
+func (h *SessionHandler) CreateViewerToken(c *fiber.Ctx) error {
+	return h.createToken(c, "viewer")
+}
+
+func (h *SessionHandler) createToken(c *fiber.Ctx, role string) error {
+	sessionID, err := parseSessionID(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: err.Error()})
+	}
+
+	var req createSessionTokenRequest
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: "invalid request body"})
+		}
+	}
+
+	session, err := h.repo.GetByID(c.UserContext(), sessionID)
+	if err != nil {
+		if errors.Is(err, repository.ErrSessionNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(errorResponse{Error: "session not found"})
+		}
+
+		return c.Status(fiber.StatusInternalServerError).JSON(errorResponse{Error: "failed to get session"})
+	}
+
+	identity, err := req.identity(role)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: err.Error()})
+	}
+	name, err := req.name(identity)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: err.Error()})
+	}
+
+	var token string
+	switch role {
+	case "publisher":
+		token, err = h.tokenClient.CreatePublisherToken(session.RoomName, identity, name)
+	case "viewer":
+		token, err = h.tokenClient.CreateViewerToken(session.RoomName, identity, name)
+	default:
+		return c.Status(fiber.StatusInternalServerError).JSON(errorResponse{Error: "invalid token role"})
+	}
+	if err != nil {
+		if errors.Is(err, livekit.ErrCreateTokenFailed) {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(errorResponse{Error: "failed to create LiveKit token"})
+		}
+
+		return c.Status(fiber.StatusInternalServerError).JSON(errorResponse{Error: "failed to create token"})
+	}
+
+	return c.JSON(createSessionTokenResponse{
+		Token:    token,
+		Identity: identity,
+		RoomName: session.RoomName,
+	})
 }
 
 func (r createSessionRequest) toCreateParams() (repository.CreateSessionParams, error) {
@@ -290,6 +368,32 @@ func normalizeOptionalString(value *string) *string {
 
 	trimmed := strings.TrimSpace(*value)
 	return &trimmed
+}
+
+func (r createSessionTokenRequest) identity(role string) (string, error) {
+	if r.Identity == nil {
+		return fmt.Sprintf("%s-%s", role, uuid.NewString()), nil
+	}
+
+	identity := strings.TrimSpace(*r.Identity)
+	if identity == "" {
+		return "", errors.New("identity is required")
+	}
+
+	return identity, nil
+}
+
+func (r createSessionTokenRequest) name(identity string) (string, error) {
+	if r.Name == nil {
+		return identity, nil
+	}
+
+	name := strings.TrimSpace(*r.Name)
+	if name == "" {
+		return "", errors.New("name is required")
+	}
+
+	return name, nil
 }
 
 func normalizeRequiredPatchString(name string, value *string) (*string, error) {

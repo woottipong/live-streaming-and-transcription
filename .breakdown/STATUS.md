@@ -4,16 +4,16 @@
 **Phase 1** — Backend foundation + Frontend skeleton + LiveKit integration
 
 ## Overall Progress
-- Phase 1: 40% (task-001, task-002, task-003, and task-004 done)
+- Phase 1: 50% (task-001, task-002, task-003, task-004, and task-005 done)
 - Phase 2: 0% (not started)
 - Phase 3: 0% (not started)
 
 ## Current Priorities
-1. ทำ token generation API
-2. ทำ LiveKit webhook receiver
-3. ทำ publisher / viewer flow ผ่าน LiveKit
-4. ทำ admin page สำหรับสร้าง/จัดการ session
-5. ทำ worker scaffold
+1. ทำ LiveKit webhook receiver
+2. ทำ publisher / viewer flow ผ่าน LiveKit
+3. ทำ admin page สำหรับสร้าง/จัดการ session
+4. ทำ worker scaffold
+5. ทำ viewer media playback
 
 ## Blockers
 - ยังไม่มี
@@ -24,7 +24,7 @@
 
 - `✅ epic-01-project-setup` — โครงโปรเจกต์ backend, frontend, database, Docker พร้อมใช้งาน
 - `✅ epic-02-session-management` — API และฐานข้อมูลสำหรับสร้าง, ดู, และแก้ไข session
-- `🎯 epic-03-livekit-integration` — เชื่อม LiveKit สำหรับ room, token, webhook, และ ingress
+- `🚧 epic-03-livekit-integration` — เชื่อม LiveKit สำหรับ room, token, webhook, และ ingress
 - `📝 epic-04-publisher-flow` — รองรับ publisher ผ่าน browser และ RTMP/OBS
 - `📝 epic-05-viewer-flow` — รองรับ viewer สำหรับดู live stream ผ่าน LiveKit
 - `📝 epic-06-admin-web` — หน้า admin สำหรับสร้าง session, ดูสถานะ, และจัดการ room info
@@ -37,9 +37,9 @@
 ## Task Index
 
 ### Current Status Snapshot
-- `✅ done`: task-001, task-002, task-003, task-004
+- `✅ done`: task-001, task-002, task-003, task-004, task-005
 - `🚧 in progress`: ยังไม่มี
-- `🎯 next up`: task-005-token-generation-api
+- `🎯 next up`: task-006-livekit-webhook-receiver
 - `⛔ blocked`: ยังไม่มี
 
 ### Done So Far
@@ -48,10 +48,10 @@
   task-002-database-schema
   task-003-session-crud-api
   task-004-livekit-room-creation
+  task-005-token-generation-api
 
 ### Ready To Start
 - `🎯` Phase 1
-  task-005-token-generation-api
   task-006-livekit-webhook-receiver
   task-007-publisher-browser-flow
   task-008-rtmp-ingress-setup
@@ -82,8 +82,8 @@
 | task-002-database-schema | backend | high | ✅ done |
 | task-003-session-crud-api | backend | high | ✅ done |
 | task-004-livekit-room-creation | backend | high | ✅ done |
-| task-005-token-generation-api | backend | high | 🎯 next |
-| task-006-livekit-webhook-receiver | backend | high | 📝 todo |
+| task-005-token-generation-api | backend | high | ✅ done |
+| task-006-livekit-webhook-receiver | backend | high | 🎯 next |
 | task-007-publisher-browser-flow | frontend | high | 📝 todo |
 | task-008-rtmp-ingress-setup | backend | medium | 📝 todo |
 | task-009-viewer-media-playback | frontend | high | 📝 todo |

@@ -29,7 +29,7 @@ func TestCreateSessionWithLiveKitUsesDetachedContextForCleanup(t *testing.T) {
 			cancel()
 			return model.Session{}, context.Canceled
 		},
-	}, roomClient)
+	}, roomClient, roomClient)
 
 	_, err := handler.createSessionWithLiveKit(ctx, repository.CreateSessionParams{
 		Title:       "Town Hall",
@@ -62,6 +62,14 @@ func (s *stubRoomClient) DeleteRoom(ctx context.Context, roomName string) error 
 	}
 
 	return s.deleteRoomFn(ctx, roomName)
+}
+
+func (*stubRoomClient) CreatePublisherToken(string, string, string) (string, error) {
+	return "", nil
+}
+
+func (*stubRoomClient) CreateViewerToken(string, string, string) (string, error) {
+	return "", nil
 }
 
 type stubSessionRepository struct {

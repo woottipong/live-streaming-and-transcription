@@ -16,11 +16,16 @@ type UpdateSessionParams = repository.UpdateSessionParams
 
 var ErrSessionNotFound = repository.ErrSessionNotFound
 
+type LiveKitClient interface {
+	backendlivekit.RoomClient
+	backendlivekit.TokenClient
+}
+
 func New(repo repository.SessionRepository) *fiber.App {
 	return NewWithLiveKit(repo, backendlivekit.NopClient{})
 }
 
-func NewWithLiveKit(repo repository.SessionRepository, roomClient backendlivekit.RoomClient) *fiber.App {
+func NewWithLiveKit(repo repository.SessionRepository, liveKitClient LiveKitClient) *fiber.App {
 	app := fiber.New()
 
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -36,7 +41,7 @@ func NewWithLiveKit(repo repository.SessionRepository, roomClient backendlivekit
 		})
 	})
 
-	handler.NewSessionHandler(repo, roomClient).Register(app)
+	handler.NewSessionHandler(repo, liveKitClient, liveKitClient).Register(app)
 
 	return app
 }

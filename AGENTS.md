@@ -53,6 +53,27 @@ Key points:
 ### Key Trigger
 - Start transcription from LiveKit webhook `TrackPublished` for an audio track, not `ParticipantJoined`
 
+## Frontend Commands
+
+All frontend commands (lint, test, build, etc.) **must be run inside the Docker container**. Do not run `pnpm` or `node` directly on the host.
+
+```bash
+# Lint
+docker compose exec frontend pnpm lint
+
+# Build
+docker compose exec frontend pnpm build
+
+# Test (once a test script is added)
+docker compose exec frontend pnpm test
+```
+
+If the container is not running, start it first:
+
+```bash
+docker compose up -d frontend
+```
+
 ## Working Rules
 
 - Work from these source-of-truth files:

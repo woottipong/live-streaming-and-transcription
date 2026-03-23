@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/livekit/protocol v1.44.1-0.20260223055551-e05f7b7a6146
 	github.com/livekit/server-sdk-go/v2 v2.16.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -90,6 +91,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	google.golang.org/grpc v1.79.1 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
